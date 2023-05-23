@@ -1,6 +1,7 @@
 package postgresql
 
 import (
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 
@@ -113,7 +114,14 @@ func (tsrc *TableSource) AddMetric(metric telegraf.Metric) {
 	}
 
 	if !tsrc.postgresql.FieldsAsJsonb {
+	Outer:
 		for _, f := range metric.FieldList() {
+			for _, t := range tsrc.postgresql.JsonbFields {
+				if f.Key == t {
+					tsrc.fieldColumns.Add(utils.Column{Name: f.Key, Type: jsonColumnDataType, Role: utils.FieldColType})
+					continue Outer
+				}
+			}
 			tsrc.fieldColumns.Add(tsrc.postgresql.columnFromField(f.Key, f.Value))
 		}
 	}
@@ -297,13 +305,29 @@ func (tsrc *TableSource) getValues() ([]interface{}, error) {
 		// fields_as_json=false
 		fieldValues := make([]interface{}, len(tsrc.fieldColumns.columns))
 		fieldsEmpty := true
-		for _, field := range metric.FieldList() {
-			// we might have dropped the field due to the table missing the column & schema updates being turned off
-			if fPos, ok := tsrc.fieldColumns.indices[field.Key]; ok {
-				fieldValues[fPos] = field.Value
-				fieldsEmpty = false
-			}
-		}
+		Outer:
+            for _, field := range metric.FieldList() {
+                // we might have dropped the field due to the table missing the column & schema updates being turned off
+                if fPos, ok := tsrc.fieldColumns.indices[field.Key]; ok {
+                    for _, t := range tsrc.postgresql.JsonbFields {
+                        if field.Key == t {
+                            var jdata interface{}
+                            err := json.Unmarshal([]byte(field.Value.(string)), &jdata)
+                            if err != nil {
+                                return nil, err
+                            }
+
+                            fieldValues[fPos], err = json.Marshal(jdata)
+                            if err != nil {
+                                return nil, err
+                            }
+                            continue Outer
+                        }
+                    }
+                    fieldValues[fPos] = field.Value
+                    fieldsEmpty = false
+                }
+            }
 		if fieldsEmpty {
 			// all fields have been dropped. Don't emit a metric with just tags and no fields.
 			return nil, nil

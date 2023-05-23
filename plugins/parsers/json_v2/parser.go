@@ -26,7 +26,7 @@ type Parser struct {
 
 	// **** The struct fields bellow this comment are used for processing indvidual configs ****
 
-	// measurementName is the name of the current config used in each line protocol
+	// measurementName is the the name of the current config used in each line protocol
 	measurementName string
 
 	// **** Specific for object configuration ****
@@ -50,6 +50,7 @@ type MetricNode struct {
 	SetName     string
 	Tag         bool
 	DesiredType string // Can be "int", "uint", "float", "bool", "string"
+	Json        bool
 	/*
 		IncludeCollection is only used when processing objects and is responsible for containing the gjson results
 		found by the gjson paths provided in the FieldPaths and TagPaths configs.
@@ -261,7 +262,7 @@ func mergeMetric(a telegraf.Metric, m telegraf.Metric) {
 func (p *Parser) expandArray(result MetricNode, timestamp time.Time) ([]telegraf.Metric, error) {
 	var results []telegraf.Metric
 
-	if result.IsObject() {
+	if result.IsObject() && !result.Json {
 		if !p.iterateObjects {
 			p.Log.Debugf("Found object in query ignoring it please use 'object' to gather metrics from objects")
 			return results, nil
@@ -529,9 +530,18 @@ func (p *Parser) combineObject(result MetricNode, timestamp time.Time) ([]telegr
 				}
 			}
 
-			arrayNode.Tag = tag
+			flag := false
+			for _, t := range p.objectConfig.JsonFields {
+				if setName == t {
+					flag = true
+					break
+				}
+			}
 
-			if val.IsObject() {
+			arrayNode.Tag = tag
+			arrayNode.Json = flag
+
+			if val.IsObject() && !arrayNode.Json {
 				results, err = p.combineObject(arrayNode, timestamp)
 				if err != nil {
 					return false
@@ -657,6 +667,10 @@ func (p *Parser) convertType(input gjson.Result, desiredType string, name string
 				return nil, fmt.Errorf("unable to convert field %q to type bool", name)
 			}
 		}
+	case map[string]interface{}:
+		return input.String(), nil
+	case []interface{}:
+		return input.String(), nil
 	default:
 		return nil, fmt.Errorf("unknown format '%T' for field  %q", inputType, name)
 	}

@@ -35,6 +35,7 @@ type Object struct {
 	TimestampTimezone  string            `toml:"timestamp_timezone"` // OPTIONAL, but REQUIRES timestamp_path
 	Renames            map[string]string `toml:"renames"`
 	Fields             map[string]string `toml:"fields"`
+	JsonFields         []string          `toml:"json_fields"` //A list of json fields that are to be parsed as json objects as is without flatenning inside the metrics line protocols
 	Tags               []string          `toml:"tags"`
 	IncludedKeys       []string          `toml:"included_keys"`
 	ExcludedKeys       []string          `toml:"excluded_keys"`

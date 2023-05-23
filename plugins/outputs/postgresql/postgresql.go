@@ -41,6 +41,7 @@ type Postgresql struct {
 	ForeignTagConstraint       bool                    `toml:"foreign_tag_constraint"`
 	TagsAsJsonb                bool                    `toml:"tags_as_jsonb"`
 	FieldsAsJsonb              bool                    `toml:"fields_as_jsonb"`
+	JsonbFields                []string                `toml:"jsonb_fields"`
 	CreateTemplates            []*sqltemplate.Template `toml:"create_templates"`
 	AddColumnTemplates         []*sqltemplate.Template `toml:"add_column_templates"`
 	TagTableCreateTemplates    []*sqltemplate.Template `toml:"tag_table_create_templates"`
